@@ -9,14 +9,10 @@ var prng = std.rand.DefaultPrng.init(43);
 const rand = prng.random();
 const stdout = std.io.getStdOut().writer();
 
-//timer
-
 //consts
 const size_x: u20 = 600;
 const size_y: u20 = 600;
 const size: u8 = 2;
-//used when drawing with ellipses
-const size_float: f32 = size;
 
 //initializing the Game 2D array and the temp array wich is used to iterate the automaton
 var Game: [size_y][size_x]u2 = undefined;
@@ -42,19 +38,6 @@ fn count_n(comptime n_of_neighbors: u8, n: [n_of_neighbors]u2, number: u2) u8 {
         }
     }
     return out;
-}
-
-fn count_majority(n: [8]u2) u2 {
-    const a = count_n(8, n, 0);
-    const b = count_n(8, n, 1);
-    const c = count_n(8, n, 2);
-    if (a >= b and a >= c) {
-        return 0;
-    } else if (b >= a and b >= c) {
-        return 1;
-    } else {
-        return 2;
-    }
 }
 
 const iErr = error{InvalidValue};
@@ -86,14 +69,6 @@ fn iter() !void {
         }
     }
     sync_fix = false;
-    //std.time.sleep(1000 * std.time.ns_per_ms);
-}
-
-fn triangle(ctx: *capy.DrawContext, x: i32, y: i32, t_size: i16) void {
-    ctx.line(x, y, x + t_size, y);
-    ctx.line(x + size, y, x + t_size, y + size);
-    ctx.line(x + size, y + t_size, x, y);
-    ctx.fill();
 }
 
 fn onDraw(c: *capy.Canvas, ctx: *capy.DrawContext) !void {
@@ -101,37 +76,27 @@ fn onDraw(c: *capy.Canvas, ctx: *capy.DrawContext) !void {
 
     for (1..(size_y - 1)) |y| {
         for (1..(size_x - 1)) |x| {
-            switch (Game[y][x]) {
-                0 => {
-                    const n_n: [4]u2 = .{ Game[y - 1][x], Game[y + 1][x], Game[y][x - 1], Game[y][x + 1] };
-                    if (count_n(4, n_n, 0) != 4 and n_n[1] == 0 and n_n[3] == 0) {
-                        ctx.setColor(0.9, 0.9, 0.9);
-                    } else if (count_n(4, n_n, 0) != 4 and n_n[2] == 0 and n_n[0] == 0) {
-                        ctx.setColor(0.08, 0.08, 0.08);
-                    } else {
-                        const yf: f32 = @floatFromInt(y);
-                        ctx.setColor(0 + (yf / size_y), 0.459, 0.643);
-                    }
-                    ctx.rectangle(@intCast(x * size), @intCast(y * size), size, size);
-                    ctx.fill();
-                },
-                1 => ctx.setColor(0.294, 0.267, 0.325),
-                2 => ctx.setColor(1, 0.502, 0.4),
-                else => {
-                    return iErr.InvalidValue;
-                },
+            if (Game[y][x] == 0) {
+                const n_n: [4]u2 = .{ Game[y - 1][x], Game[y + 1][x], Game[y][x - 1], Game[y][x + 1] };
+                if (count_n(4, n_n, 0) != 4 and n_n[1] == 0 and n_n[3] == 0) {
+                    ctx.setColor(0.9, 0.9, 0.9);
+                } else if (count_n(4, n_n, 0) != 4 and n_n[2] == 0 and n_n[0] == 0) {
+                    ctx.setColor(0.08, 0.08, 0.08);
+                } else {
+                    const yf: f32 = @floatFromInt(y);
+                    ctx.setColor(0 + (yf / size_y), 0.459, 0.643);
+                }
+                ctx.rectangle(@intCast(x * size), @intCast(y * size), size, size);
+                ctx.fill();
             }
-            //ctx.ellipse(@intCast(x * size), @intCast(y * size), size_float, size_float);
-            //triangle(ctx, @intCast(x * size), @intCast(y * size));
-            //ctx.rectangle(@intCast(x * size), @intCast(y * size), size, size);
-            //ctx.fill();
         }
     }
+    //sync_fix makes sure iter and onDraw are coordinated
     sync_fix = true;
-    //try onDraw(w, ctx);
 }
 
 fn draw(c: *capy.Canvas) !void {
+    //timer if one wants the execution time
     const timer = try std.time.Timer.start();
     _ = timer;
     while (true) {
@@ -163,6 +128,7 @@ pub fn main() !void {
     try window.set(canvas);
     window.show();
 
+    //update and draw the canvas in a different threads, this allows capy to actually launch the window
     var iterThread = try std.Thread.spawn(.{}, draw, .{canvas});
     defer iterThread.join();
 
